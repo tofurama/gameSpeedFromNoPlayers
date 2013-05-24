@@ -18,7 +18,7 @@ This is a custom, basic library for the HTML5 canvas object. It is used in this 
   1) Traditional - passing in parameters from left to right (ex. function(*xPos*, *yPos*))
   2) Literal - passing in a literal with the name of the items (ex. function({x: *xPos*, y: *yPos*}))
 
-This is meant to allow the developer to write code in the most intuitive style for the developer. The code in this project mainly uses the literal method.
+This is meant to allow the developer to write code according to his/her preference. The code in this project mainly uses the literal method.
 
 index.php
 ======================
