@@ -14,4 +14,5 @@ $cHeight = 500;
 #maximum number of normal blue dots to update
     #(does not include the two side hugging dots);
 $maxOffset = 13;
+$maxNumItems = 5;
 ?>

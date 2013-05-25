@@ -15,11 +15,13 @@ require_once("dimensions.php");
 <body >
     <div id="CanvasHolder" style="float:left; width:<?php echo $cWidth+5; ?>;" ></div>
     <div id="Score" style="float:left;"></div>
+	<img id="ItemImg" style="display:none;" src="/images/Item.jpg" />
     <script type="text/javascript">
         //Initialization of the client processes
         var canvas = new CanvasElement("CanvasHolder", "canvas", "<?php echo $cWidth; ?>", "<?php echo $cHeight; ?>", "2d", false, KeyDown, KeyUp);
-        var playDim = 12;
-        var speed = 7.5;
+
+		var playDim = 12;
+        var speed = 9.41;
         var score = 0;
         var started = false;
         document.getElementById("canvas").addEventListener("click", GameStart);
@@ -28,7 +30,8 @@ require_once("dimensions.php");
         var playerDirectionY = 0;
         
         var coordinates = new Array();
-        var playerCoordinates = new Coordinates(canvas.width/2,canvas.height/2,0,190);
+		var itemCoordinates = new Array();
+        var playerCoordinates = new Coordinates(canvas.width/2,canvas.height/2,0,109);
         var count = 0;
         
         //start collecting obstacle data from the server
@@ -38,6 +41,11 @@ require_once("dimensions.php");
         {
             coordinates[i] = new Coordinates(0,0,0,0);
         }
+
+		for(var i = 0; i < <?php echo $maxNumItems;?>; i++)
+		{
+			itemCoordinates[i] = new Coordinates(-50,-50,0,0);
+		}
         
         var increase = true;
         var timeout;
@@ -172,7 +180,7 @@ require_once("dimensions.php");
                     return false;
                 }
                 //big points for surviving us
-                score += 2;
+                score += .04;
             }
             return true;
         }
@@ -188,8 +196,11 @@ require_once("dimensions.php");
         //Move the player based off of the player's direction
         function MovePlayer()
         {
-            playerCoordinates.y += playerDirectionY;
-            playerCoordinates.x += playerDirectionX;
+			var playerDir = NormalizeCoordinates(new Coordinates(playerDirectionX, playerDirectionY, 0, 0));
+			if(!isNaN(playerDir.y))
+				playerCoordinates.y += playerDir.y * speed;
+			if(!isNaN(playerDir.x))
+				playerCoordinates.x += playerDir.x * speed;
             
             //lock us to the screen
             if(playerCoordinates.y < playDim)
@@ -218,6 +229,12 @@ require_once("dimensions.php");
                 }
                 canvas.circle({x:hunters[i].x, y:hunters[i].y, radius:10, lineWidth:2, fillStyle:"green", strokeStyle:"blue"});
             }
+			for(var i = 0; i < itemCoordinates.length; i++)
+			{
+				if(itemCoordinates[i].status == 0 || !started)
+					continue;
+				canvas.circle({x:itemCoordinates[i].x, y:itemCoordinates[i].y, radius:10, fillStyle:"#C8BFE7",lineWidth:1, strokeStyle:"black"});
+			}
         }
         
         //update the game
@@ -257,9 +274,17 @@ require_once("dimensions.php");
                     }
                 }
             }
+
+			//display items
+			for(var i = 0; i < itemCoordinates.length; i++)
+			{
+				if(itemCoordinates[i].status == 0 || !started)
+					continue;
+				canvas.circle({x:itemCoordinates[i].x, y:itemCoordinates[i].y, radius:10, fillStyle:"#C8BFE7",lineWidth:1, strokeStyle:"black"});
+			}
             
             //increment score for surviving
-            score += 1;
+            score += .01;
             
             //draw text on screen based on the state
             if(started && playerCoordinates.state > 0)
@@ -268,7 +293,7 @@ require_once("dimensions.php");
                 canvas.drawText({text:"Game Start: " + Math.floor(playerCoordinates.state/10), x:<?php echo 10; ?>,y:20,font:"20pt Calibri", fillStyle:"black", textAlign:"left"});
             }
             else if(started)
-                canvas.drawText({text:"Score: " + score, x:<?php echo $cWidth-10; ?>,y:20,font:"20pt Calibri", fillStyle:"black", textAlign:"right"});
+                canvas.drawText({text:"Score: " + Math.floor(score), x:<?php echo $cWidth-10; ?>,y:20,font:"20pt Calibri", fillStyle:"black", textAlign:"right"});
             else
                 canvas.drawText({text:"Click to Start", x:250,y:250,font:"italic 40pt Calibri", fillStyle:"black", textAlign:"center", textBaseline:"middle"});
             
@@ -280,12 +305,18 @@ require_once("dimensions.php");
         //get coordinates and states of the dots from the server
         function GetCoordinates()
         {
+			var data = {};
+			if(started && playerCoordinates.state <= 0)
+			{
+				data = "pX="+playerCoordinates.x+"&pY="+playerCoordinates.y;
+				//$("#debug").html(data);
+			}
             $.ajax({
                 url: "coordinateCollector.php",
                 dataType: "html",
                 success:function(data, textStatus, jqXHR){$("#serverUpdate").html(data);UpdateGame();},
                 type: "POST",
-                data: {},
+                data: data,
             });
         }
         
@@ -302,6 +333,8 @@ require_once("dimensions.php");
         function NormalizeCoordinates(coordBase)
         {
             var magnitude = MagnitudeCoordinates(coordBase);
+			if(isNaN(magnitude))
+				return coordBase;
             coord = new Coordinates(coordBase.x/magnitude, coordBase.y/magnitude, 0, 0);
             return coord;
         }
@@ -320,10 +353,10 @@ require_once("dimensions.php");
             
             //draw text
             canvas.drawText({text:"Game Over", x:250,y:250,font:"italic 40pt Calibri", fillStyle:"black", textAlign:"center"});
-            canvas.drawText({text:"Score: "+ score, x:250,y:300,font:"30pt Calibri", fillStyle:"black", textAlign:"center"});
+            canvas.drawText({text:"Score: "+ Math.floor(score), x:250,y:300,font:"30pt Calibri", fillStyle:"black", textAlign:"center"});
             
             //reset coordinates and player direction
-            playerCoordinates = new Coordinates(canvas.width/2,canvas.height/2,0,190);
+            playerCoordinates = new Coordinates(canvas.width/2,canvas.height/2,0,109);
             $("#canvas").focus();
             playerDirectionY = 0;
             playerDirectionX = 0;
@@ -357,5 +390,6 @@ require_once("dimensions.php");
         }
     </script>
     <div id="serverUpdate"></div>
+	<div id="debug"></div>
 </body>
 </html>

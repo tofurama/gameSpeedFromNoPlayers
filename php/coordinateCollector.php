@@ -13,7 +13,7 @@ require_once("dimensions.php");
 #the higher it is, the slower the blue dots
 #it's fairly low since I was testing with low traffic
 #please change if the game regularly becomes unplayable
-$multiplier = 1.3;
+$multiplier = 1.2;
 
 #current dot we're on
 $curoffset = 0;
@@ -66,10 +66,10 @@ else
             {
                 $x = rand(-14,($cWidth-14)*$multiplier);
                 $y = rand(-14, ($cHeight-14)*$multiplier);
-                $state1 = rand(0,2);
-                $state2 = rand(0,2);
+                $state1 = rand(0,3);
+                $state2 = rand(0,3);
             }
-                
+    
             if($state1 == 0 && $state2 == 0)
             {
                 $state1 = 2;
@@ -86,15 +86,15 @@ else
             {
                 $x = rand(-14,($cWidth-14)*$multiplier);
                 $y = -14;
-                $state1 = rand(0,2);
-                $state2 = rand(1, 2);
+                $state1 = rand(0,3);
+                $state2 = rand(1,3);
             }
             if($y > ($cHeight)*$multiplier)
             {
                 $x = -14;
                 $y = rand(-14, ($cHeight-14)*$multiplier);
-                $state1 = rand(1,2);
-                $state2 = rand(0,2);
+                $state1 = rand(1,3);
+                $state2 = rand(0,3);
             }
             
             //save current data to shared memory
@@ -242,6 +242,163 @@ else
             <script type="text/javascript">
                 coordinates[<?php echo $curoffset; ?>].x = <?php echo ((int)$x)/$multiplier; ?>;
                 coordinates[<?php echo $curoffset; ?>].y = <?php echo ((int)$y)/$multiplier; ?>;
+            </script>
+            <?php
+        }
+    }
+    
+
+    //Items
+    for($curoffset = $maxOffset + 2; $curoffset < $maxOffset + 2  + $maxNumItems; $curoffset++)
+    {
+        //set our offset in the data (requires 13 characters since negatives are in there)
+        $offset = $maxOffset * 10 + (2) * 12 + ($curoffset - $maxOffset - 1) * 14;
+    
+        if(shmop_size($shm_id) > 0)
+        {
+            $coords = shmop_read($shm_id, $offset, 13);
+            $x = (int)substr($coords, 0, 4);
+            $y = (int)substr($coords, 4, 4);
+            $state1 = (int)substr($coords, 8, 2);
+            $state2 = (int)substr($coords, 10, 2);
+            $active = (int)substr($coords, 12, 1);
+			//$x = 0;
+			//$y = 0;
+			if($active > 1)
+				$active = 1;
+			$justChanged = false;
+			if($active == 1)
+			{
+				if(isset($_POST['pX']) && isset($_POST['pY']))
+				{
+					$px = ((int)$_POST['pX']) * $multiplier;
+					$py = ((int)$_POST['pY']) * $multiplier;
+					$distSqr = ($x  - $px) * ($x - $px) + ($y- $py) * ($y- $py);
+					if($distSqr < 400)
+					{
+						$active = 0;
+						$justChanged = true;
+						?>
+						<script type="text/javascript">
+							score += 250;
+						</script>
+						<?php
+						$edge = rand(0,3);
+						if($edge == 0)
+						{
+							$x = ($cWidth * $multiplier + 18);
+							$y = rand(0, $cHeight);
+						}
+						elseif($edge == 1)
+						{
+							$x = -1 * ($cWidth * $multiplier + 18) ;
+							$y = rand(0, $cHeight);
+						}
+						elseif($edge == 2)
+						{
+							$x = rand(0, $cWidth * $multiplier) ;
+							$y = ($cHeight + 14) ;
+						}
+						elseif($edge == 3)
+						{
+							$x = rand(0, $cWidth * $multiplier) ;
+							$y = -1 * ($cHeight + 14) ;
+						}
+
+						//switch our direction
+						$state1 = rand(5, 9);
+						$state2 = rand(5, 9);
+					}
+				}
+				$x += $state1;
+				$y += $state2;
+				//make sure we don't stand still
+				if($state1 == 0 && $state2 == 0)
+				{
+					$state1 = rand(5, 9);
+					$state2 = rand(5, 9);
+				}
+                
+				//move along the borders; set our position at each stop
+				if($x > (($cWidth)) * $multiplier)
+				{
+					$state1 = -1 * rand(5, 9);
+				}
+            
+				if($y > ($cHeight) * $multiplier)
+				{
+					$state2 = -1 * rand(5, 9);
+				}
+            
+				if($y < 0)
+				{
+					$state2 = rand(5, 9);
+				}
+                
+				if($x < 0)
+				{
+					$state1 = rand(5, 9);
+				}
+			}
+            
+            //save our positon/state data
+            $numZeros = 4-strlen($x);
+            for($i = 0; $i < $numZeros; $i++)
+            {
+                $x = "0".$x;
+            }
+        
+            $numZeros = 4-strlen($y);
+            for($i = 0; $i < $numZeros; $i++)
+            {
+                $y = "0".$y;
+            }
+        
+            $state1 = (string)$state1;
+            $numZeros = 2-strlen($state1);
+            for($i = 0; $i < $numZeros; $i++)
+            {
+                $state1 = "0".$state1;
+            }
+            
+            $state2 = (string)$state2;
+            $numZeros = 2-strlen($state2);
+            for($i = 0; $i < $numZeros; $i++)
+            {
+                $state2 = "0".$state2;
+            }
+
+			if($active == "0" && !$justChanged)
+			{
+				if(rand(0, 5000) % 955 == 1)
+				{
+					$active = "1";
+				}
+			}
+            
+            $compact = $x.$y.$state1.$state2.$active;
+            shmop_write($shm_id, $compact, $offset);
+        
+            //reload our data
+            $coords = shmop_read($shm_id, $offset, 13);
+            $x = (int)substr($coords, 0, 4);
+            $y = (int)substr($coords, 4, 4);
+            $state = (int)substr($coords, 8, 4);
+            $active = (int)substr($coords, 12, 1);
+        }
+
+
+        //if our data is set, send it to the client
+        if(isset($coords) && $coords != null)
+        {
+            $x = substr($coords, 0, 4);
+            $y = substr($coords, 4, 4);
+            $state = substr($coords, 8, 2);
+            ?>
+            <script type="text/javascript">
+                itemCoordinates[<?php echo $curoffset - $maxOffset - 2; ?>].x = <?php echo ((int)$x)/$multiplier; ?>;
+                itemCoordinates[<?php echo $curoffset - $maxOffset - 2; ?>].y = <?php echo ((int)$y)/$multiplier; ?>;
+				itemCoordinates[<?php echo $curoffset - $maxOffset - 2; ?>].status = <?php echo ($active); ?>;
             </script>
             <?php
         }
